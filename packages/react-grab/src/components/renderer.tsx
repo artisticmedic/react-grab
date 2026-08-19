@@ -134,6 +134,9 @@ export const ReactGrabRenderer: Component<ReactGrabRendererProps> = (props) => {
           onSelectHoverChange={props.onToolbarSelectHoverChange}
           onContainerRef={props.onToolbarRef}
           onToggleToolbarMenu={props.onToggleToolbarMenu}
+          toolbarActions={(props.actions ?? []).filter(
+            (action) => action.showInToolbarMenu === true,
+          )}
         />
       </Show>
       <ContextMenu

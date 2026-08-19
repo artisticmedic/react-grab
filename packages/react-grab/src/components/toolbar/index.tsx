@@ -1,10 +1,11 @@
-import { createEffect, createSignal, on, onCleanup, onMount, type Component } from "solid-js";
-import type { Position } from "../../types.js";
+import { createEffect, createSignal, For, on, onCleanup, onMount, type Component } from "solid-js";
+import type { ContextMenuAction, Position } from "../../types.js";
 import { cn } from "../../utils/cn.js";
 import { loadToolbarState, saveToolbarState, type SnapEdge, type ToolbarState } from "./state.js";
 import { IconSelect } from "../icons/icon-select.jsx";
 import { IconComment } from "../icons/icon-comment.jsx";
 import { IconStyle } from "../icons/icon-style.jsx";
+import { IconText } from "../icons/icon-text.jsx";
 import { ToolbarActionButton } from "./toolbar-action-button.jsx";
 import {
   TOOLBAR_SNAP_MARGIN_PX,
@@ -53,6 +54,7 @@ interface ToolbarProps {
   onSelectHoverChange?: (isHovered: boolean) => void;
   onContainerRef?: (element: HTMLDivElement) => void;
   onToggleToolbarMenu?: () => void;
+  toolbarActions?: ContextMenuAction[];
 }
 
 interface FreezeHandlersOptions {
@@ -792,6 +794,41 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
               tooltipPosition={tooltipPosition()}
               tooltip="Style"
             />
+            <For
+              each={(props.toolbarActions ?? []).filter(
+                (action) =>
+                  ![DEFAULT_ACTION_ID, COMMENT_ACTION_ID, EDIT_ACTION_ID].includes(action.id),
+              )}
+            >
+              {(action) => (
+                <ToolbarActionButton
+                  actionId={action.id}
+                  label={`${action.label} element`}
+                  isActive={isActionActive(action.id)}
+                  class={actionButtonClass}
+                  wrapperClass={actionButtonWrapperClass()}
+                  onClick={drag.createDragAwareHandler(() => props.onActivateAction?.(action.id))}
+                  {...createFreezeHandlers(action.id)}
+                  icon={
+                    action.id === "text" ? (
+                      <IconText size={14} class={actionIconClass(isActionActive(action.id))} />
+                    ) : (
+                      <span
+                        class={cn(
+                          "flex h-3.5 w-3.5 items-center justify-center text-[11px] font-semibold leading-none",
+                          actionIconClass(isActionActive(action.id)),
+                        )}
+                      >
+                        {(action.shortcut ?? action.label.charAt(0)).toUpperCase()}
+                      </span>
+                    )
+                  }
+                  tooltipVisible={isTooltipVisible(action.id)}
+                  tooltipPosition={tooltipPosition()}
+                  tooltip={action.label}
+                />
+              )}
+            </For>
           </>
         }
       />
