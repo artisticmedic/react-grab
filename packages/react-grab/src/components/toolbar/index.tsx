@@ -3,7 +3,6 @@ import type { ContextMenuAction, Position } from "../../types.js";
 import { cn } from "../../utils/cn.js";
 import { loadToolbarState, saveToolbarState, type SnapEdge, type ToolbarState } from "./state.js";
 import { IconSelect } from "../icons/icon-select.jsx";
-import { IconComment } from "../icons/icon-comment.jsx";
 import { IconStyle } from "../icons/icon-style.jsx";
 import { IconText } from "../icons/icon-text.jsx";
 import { ToolbarActionButton } from "./toolbar-action-button.jsx";
@@ -130,8 +129,8 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
   // post-copy reactivation) never set activeActionId, so a null id while active
   // means the implicit default copy/select flow - keep the select icon's
   // cursor-follow rotation and pressed state working for those paths too.
-  const isCopyActive = () =>
-    Boolean(props.isActive) && (props.activeActionId ?? DEFAULT_ACTION_ID) === DEFAULT_ACTION_ID;
+  const isCommentActive = () =>
+    Boolean(props.isActive) && props.activeActionId === COMMENT_ACTION_ID;
 
   const isTooltipVisible = (actionId: string) =>
     hoveredActionId() === actionId &&
@@ -206,9 +205,9 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
   createEffect(
     on(
-      () => isCopyActive(),
-      (isCopyActionActive) => {
-        if (!isCopyActionActive) {
+      () => isCommentActive(),
+      (isCommentActionActive) => {
+        if (!isCommentActionActive) {
           // The accumulator can drift past ±180° while the user circles the
           // toolbar; resetting to literal 0 would unspin those revolutions
           // through the CSS transition. Snapping to the nearest equivalent
@@ -292,10 +291,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
     setPosition(newPosition);
   };
 
-  const handleToggle = drag.createDragAwareHandler(() => props.onToggle?.());
-  const handleComment = drag.createDragAwareHandler(() =>
-    props.onActivateAction?.(COMMENT_ACTION_ID),
-  );
+  const handleSelectTool = drag.createDragAwareHandler(() => props.onToggle?.());
   const handleStyle = drag.createDragAwareHandler(() => props.onActivateAction?.(EDIT_ACTION_ID));
 
   const actionButtonClass =
@@ -740,42 +736,27 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
         actionButtons={
           <>
             <ToolbarActionButton
-              actionId={DEFAULT_ACTION_ID}
+              actionId={COMMENT_ACTION_ID}
               isToggle
               ref={(element) => (selectButtonRef = element)}
-              label={isCopyActive() ? "Stop selecting element" : "Copy element"}
-              isActive={isCopyActive()}
+              label={isCommentActive() ? "Stop commenting" : "Comment on element"}
+              isActive={isCommentActive()}
               class={actionButtonClass}
               wrapperClass={actionButtonWrapperClass()}
-              onClick={handleToggle}
+              onClick={handleSelectTool}
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 setHoveredActionId(null);
                 props.onToggleToolbarMenu?.();
               }}
-              {...createFreezeHandlers(DEFAULT_ACTION_ID)}
+              {...createFreezeHandlers(COMMENT_ACTION_ID)}
               icon={
                 <IconSelect
                   size={14}
                   rotationDeg={selectIconRotationDeg()}
-                  class={actionIconClass(isCopyActive())}
+                  class={actionIconClass(isCommentActive())}
                 />
-              }
-              tooltipVisible={isTooltipVisible(DEFAULT_ACTION_ID)}
-              tooltipPosition={tooltipPosition()}
-              tooltip="Copy"
-            />
-            <ToolbarActionButton
-              actionId={COMMENT_ACTION_ID}
-              label="Comment on element"
-              isActive={isActionActive(COMMENT_ACTION_ID)}
-              class={actionButtonClass}
-              wrapperClass={actionButtonWrapperClass()}
-              onClick={handleComment}
-              {...createFreezeHandlers(COMMENT_ACTION_ID)}
-              icon={
-                <IconComment size={14} class={actionIconClass(isActionActive(COMMENT_ACTION_ID))} />
               }
               tooltipVisible={isTooltipVisible(COMMENT_ACTION_ID)}
               tooltipPosition={tooltipPosition()}

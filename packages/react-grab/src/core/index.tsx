@@ -465,7 +465,7 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
           activationHoldState.holdTimerFired = true;
           return;
         }
-        actions.activate();
+        activateFromHotkey();
       }, store.keyHoldDuration);
       onCleanup(clearHoldTimer);
     });
@@ -1698,6 +1698,13 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
       ),
     );
 
+    const activateFromHotkey = () => {
+      if (!pluginRegistry.store.options.activationKey) {
+        actions.setPendingCommentMode(true);
+      }
+      activateRenderer();
+    };
+
     const activateRenderer = () => {
       const wasInHoldingState = isHoldingKeys();
       actions.activate();
@@ -1922,7 +1929,7 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
     };
 
     const handleToggleActive = () => {
-      handleActivateAction(currentToolbarState()?.defaultAction ?? DEFAULT_ACTION_ID);
+      handleComment();
     };
 
     const enterCommentModeForElement = (element: Element, positionX: number, positionY: number) => {
@@ -2761,7 +2768,7 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
           const shouldActivate = activationHoldState.holdTimerFired;
           resetCopyConfirmation();
           if (shouldActivate) {
-            actions.activate();
+            activateFromHotkey();
           }
         }
         return;
@@ -3033,7 +3040,7 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
                 !isKeyboardEventTriggeredByInput(event));
             resetCopyConfirmation();
             if (shouldActivateAfterCopy) {
-              actions.activate();
+              activateFromHotkey();
             } else {
               actions.releaseHold();
             }
@@ -4231,10 +4238,13 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
 
     const api: ReactGrabAPI = {
       activate: () => {
-        actions.setPendingCommentMode(false);
-        if (!isActivated() && isEnabled()) {
-          toggleActivate();
+        if (!isEnabled()) return;
+        if (isActivated() && isCommentMode()) {
+          deactivateRenderer();
+          return;
         }
+        actions.setPendingCommentMode(true);
+        if (!isActivated()) toggleActivate();
       },
       deactivate: () => {
         if (isActivated() || isCopying()) {
@@ -4247,6 +4257,7 @@ export const init = (rawOptions?: Options): ReactGrabAPI => {
         if (isActivated() || isCopying()) {
           deactivateRenderer();
         } else if (isEnabled()) {
+          actions.setPendingCommentMode(true);
           toggleActivate();
         }
       },
