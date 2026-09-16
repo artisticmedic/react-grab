@@ -3,6 +3,7 @@ import { areArraysShallowEqual } from "./are-arrays-shallow-equal.js";
 import { roundEditableNumericValue } from "./format-css-value.js";
 import { parseAnyColor } from "./parse-any-color.js";
 import { parseNumericValue } from "./parse-numeric-value.js";
+import { nextValueInScale, nextValueOnGrid } from "./step-length-scale.js";
 
 // Design tokens are surfaced through CSS custom properties regardless of
 // the styling library (shadcn, Radix, Chakra, MUI, Tailwind v4 `@theme`,
@@ -107,59 +108,6 @@ const preferToken = (candidate: string, incumbent: string | null): boolean => {
   if (incumbent === null) return true;
   if (candidate.length !== incumbent.length) return candidate.length < incumbent.length;
   return candidate < incumbent;
-};
-
-// Pulling an off-scale value onto the nearest bound reads as a step only while
-// the value sits near the scale (a 15px padding snapping to 16px). Far outside
-// it the same snap is a teleport — a 800px max-width against a size scale that
-// tops out at 8px would collapse on one arrow press — so reach is capped at the
-// scale's own outermost gap and anything beyond falls back to a raw step.
-const isWithinSnapReach = (scale: readonly number[], current: number, boundIndex: number) => {
-  const bound = scale[boundIndex];
-  const neighbour = scale[boundIndex === 0 ? 1 : boundIndex - 1];
-  const reach = neighbour === undefined ? Math.abs(bound) : Math.abs(bound - neighbour);
-  return Math.abs(current - bound) <= reach;
-};
-
-// Discrete scales (Radix/Chakra spacing, Tailwind `--text-*`, …) snap to the
-// neighbouring token; an off-scale value returns null so the caller can fall
-// back to a raw step instead of teleporting across the scale.
-export const nextValueInScale = (
-  scale: readonly number[],
-  current: number,
-  direction: 1 | -1,
-): number | null => {
-  if (direction === 1) {
-    // First token above current. Also pulls a near-enough below-scale value up
-    // onto the floor; yields null past the top token so the caller falls back
-    // to raw.
-    for (let scaleIndex = 0; scaleIndex < scale.length; scaleIndex++) {
-      if (scale[scaleIndex] <= current) continue;
-      const isFloorToken = scaleIndex === 0;
-      if (isFloorToken && !isWithinSnapReach(scale, current, scaleIndex)) return null;
-      return scale[scaleIndex];
-    }
-    return null;
-  }
-  // First token below current. Also pulls a near-enough above-scale value down
-  // onto the top token; yields null past the floor so the caller falls back to
-  // raw.
-  for (let scaleIndex = scale.length - 1; scaleIndex >= 0; scaleIndex--) {
-    if (scale[scaleIndex] >= current) continue;
-    const isTopToken = scaleIndex === scale.length - 1;
-    if (isTopToken && !isWithinSnapReach(scale, current, scaleIndex)) return null;
-    return scale[scaleIndex];
-  }
-  return null;
-};
-
-// Tailwind exposes spacing/sizing as `calc(var(--spacing) * N)` with a single
-// base unit rather than discrete tokens, so the arrows walk that grid.
-const nextValueOnGrid = (current: number, direction: 1 | -1, unitPx: number): number | null => {
-  const gridIndex =
-    direction === 1 ? Math.floor(current / unitPx) + 1 : Math.ceil(current / unitPx) - 1;
-  const next = gridIndex * unitPx;
-  return next < 0 ? null : next;
 };
 
 // The custom-property *names* are document-global and unchanged across element
@@ -285,15 +233,16 @@ export const collectDesignTokens = (element: Element): DesignTokenResolver => {
     const current = Math.round(px);
 
     const scale = sortedLengthPxByFamily.get(family);
-    // A real multi-step scale always wins.
-    if (scale && scale.length >= 2) return nextValueInScale(scale, current, direction);
-    // Spacing/sizing without a discrete scale ride Tailwind's `--spacing` grid.
+    // A real multi-step scale always wins, but only while the value is on it.
+    if (scale && scale.length >= 2) {
+      const steppedInScale = nextValueInScale(scale, current, direction);
+      if (steppedInScale !== null) return steppedInScale;
+    }
+    // Spacing/sizing off the scale rides Tailwind's `--spacing` grid, which
+    // steps to the adjacent grid cell and so stays a nudge at any magnitude.
     if ((family === "spacing" || family === "size") && spacingBaseUnitPx) {
       return nextValueOnGrid(current, direction, spacingBaseUnitPx);
     }
-    // A lone token (e.g. a single `--radius`) can still be reached from nearby
-    // values rather than dead-ending on a raw step.
-    if (scale) return nextValueInScale(scale, current, direction);
     return null;
   };
 
