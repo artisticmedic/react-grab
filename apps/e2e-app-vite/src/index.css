@@ -5,5 +5,8 @@
 :root {
   --rg-test-space-4: 16px;
   --rg-test-space-6: 24px;
+  --rg-test-icon-size: 16px;
+  --rg-test-icon-size-large: 32px;
+  --rg-test-container-width: 1280px;
   --rg-test-brand: #123456;
 }

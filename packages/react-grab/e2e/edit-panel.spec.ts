@@ -877,20 +877,26 @@ test.describe("Style Panel", () => {
       expect(await getActivePropertyValue(reactGrab.page)).toBe("96px");
     });
 
-    test("ArrowRight/ArrowLeft snap a length through the design-token scale", async ({
+    test("off-scale spacing walks the grid before an on-scale value walks tokens", async ({
       reactGrab,
     }) => {
       await openEditPanel(reactGrab, UNIFORM_PADDING_SELECTOR);
       await setSearchInputValue(reactGrab.page, "padding");
       await expect.poll(() => getActivePropertyKey(reactGrab.page)).toBe("padding");
 
-      // p-2 (8px) starts inside the [--rg-test-space-4: 16px, --rg-test-space-6: 24px]
-      // scale, so the arrows snap to the next/previous token rather than ±1px.
+      // p-2 (8px) starts off the discrete [16px, 24px] scale, so it walks
+      // Tailwind's 4px spacing grid until it reaches the first token.
+      await reactGrab.page.keyboard.press("ArrowRight");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, UNIFORM_PADDING_SELECTOR, "padding-top"))
+        .toBe("12px");
+
       await reactGrab.page.keyboard.press("ArrowRight");
       await expect
         .poll(() => getInlineStyleProperty(reactGrab.page, UNIFORM_PADDING_SELECTOR, "padding-top"))
         .toBe("16px");
 
+      // Once the value is on the scale, the arrows walk its adjacency.
       await reactGrab.page.keyboard.press("ArrowRight");
       await expect
         .poll(() => getInlineStyleProperty(reactGrab.page, UNIFORM_PADDING_SELECTOR, "padding-top"))
@@ -902,15 +908,16 @@ test.describe("Style Panel", () => {
         .toBe("16px");
     });
 
-    test("ArrowRight past the top of the token scale falls back to a raw step", async ({
+    test("ArrowRight past the top of the token scale falls back to the spacing grid", async ({
       reactGrab,
     }) => {
       await openEditPanel(reactGrab, UNIFORM_PADDING_SELECTOR);
       await setSearchInputValue(reactGrab.page, "padding");
       await expect.poll(() => getActivePropertyKey(reactGrab.page)).toBe("padding");
 
-      // 8px → 16px → 24px walks the token scale; the next press is at the
-      // scale's max token, so it nudges by a raw pixel instead of dead-ending.
+      // 8px → 12px → 16px walks the spacing grid, then 16px → 24px
+      // walks the token scale. The grid takes over again past the top token.
+      await reactGrab.page.keyboard.press("ArrowRight");
       await reactGrab.page.keyboard.press("ArrowRight");
       await reactGrab.page.keyboard.press("ArrowRight");
       await expect
@@ -919,7 +926,7 @@ test.describe("Style Panel", () => {
       await reactGrab.page.keyboard.press("ArrowRight");
       await expect
         .poll(() => getInlineStyleProperty(reactGrab.page, UNIFORM_PADDING_SELECTOR, "padding-top"))
-        .toBe("25px");
+        .toBe("28px");
     });
 
     test("Alt+ArrowRight does a fine raw step instead of snapping to a token", async ({
@@ -929,14 +936,43 @@ test.describe("Style Panel", () => {
       await setSearchInputValue(reactGrab.page, "padding");
       await expect.poll(() => getActivePropertyKey(reactGrab.page)).toBe("padding");
 
-      // Plain ArrowRight would snap 8px up to the 16px token; Alt opts out for
-      // a precise ±1px nudge so values can land between tokens.
+      // Plain ArrowRight would walk the 4px spacing grid to 12px; Alt opts out
+      // for a precise ±1px nudge so values can land between grid cells.
       await reactGrab.page.keyboard.down("Alt");
       await reactGrab.page.keyboard.press("ArrowRight");
       await reactGrab.page.keyboard.up("Alt");
       await expect
         .poll(() => getInlineStyleProperty(reactGrab.page, UNIFORM_PADDING_SELECTOR, "padding-top"))
         .toBe("9px");
+    });
+
+    test("off-scale size nudges instead of entering a sparse token scale", async ({
+      reactGrab,
+    }) => {
+      await reactGrab.page.evaluate((buttonSelector) => {
+        const button = document.querySelector(buttonSelector);
+        if (button instanceof HTMLElement) button.style.maxWidth = "800px";
+      }, BUTTON_SELECTOR);
+      await openEditPanel(reactGrab, BUTTON_SELECTOR);
+      await setSearchInputValue(reactGrab.page, "max width");
+      await expect.poll(() => getActivePropertyKey(reactGrab.page)).toBe("max-width");
+
+      // The size family also contains 16px, 32px, and 1280px tokens. Because
+      // 800px is not itself a token, both directions stay on the 4px grid.
+      await reactGrab.page.keyboard.press("ArrowLeft");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, BUTTON_SELECTOR, "max-width"))
+        .toBe("796px");
+
+      await reactGrab.page.keyboard.press("ArrowRight");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, BUTTON_SELECTOR, "max-width"))
+        .toBe("800px");
+
+      await reactGrab.page.keyboard.press("ArrowRight");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, BUTTON_SELECTOR, "max-width"))
+        .toBe("804px");
     });
 
     test("ArrowUp / ArrowDown navigate the list, not the value", async ({ reactGrab }) => {
