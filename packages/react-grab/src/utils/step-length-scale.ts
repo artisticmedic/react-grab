@@ -1,15 +1,8 @@
-// Pure stepping math for the edit panel's arrow keys, kept apart from the
-// CSSOM walk that discovers the scales so it can be reasoned about and
-// tested without a document.
-
-// The arrow keys walk a project's token scale (Radix/Chakra spacing, Tailwind
-// `--text-*`, …) so values land on design-system steps. The walk starts only
-// from a value already on the scale. Stepping onto the scale from between two
-// tokens would move the value by the width of whatever gap it sits in, and one
-// family can be arbitrarily sparse — icon sizes and a container width both
-// resolve to "size" — so that gap has no upper bound; a 800px max-width
-// against a 16/32/1280 scale collapsed to 32 on one press. Off the scale the
-// caller nudges instead, which is bounded by construction.
+// Stepping onto the scale from between two tokens would move the value by the
+// width of whatever gap it sits in, and a family can be arbitrarily sparse —
+// icon sizes and a container width both resolve to "size" — so that gap has no
+// upper bound. The walk therefore starts only from a value already on the
+// scale; off it the caller nudges, which is bounded by construction.
 export const nextValueInScale = (
   scale: readonly number[],
   current: number,

@@ -233,8 +233,6 @@ export const collectDesignTokens = (element: Element): DesignTokenResolver => {
     const current = Math.round(px);
 
     const scale = sortedLengthPxByFamily.get(family);
-    // The token scale wins while the value is on it; off it there is no
-    // neighbouring token that is also a nudge.
     if (scale) {
       const steppedInScale = nextValueInScale(scale, current, direction);
       if (steppedInScale !== null) return steppedInScale;
