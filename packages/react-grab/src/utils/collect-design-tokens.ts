@@ -109,26 +109,46 @@ const preferToken = (candidate: string, incumbent: string | null): boolean => {
   return candidate < incumbent;
 };
 
+// Pulling an off-scale value onto the nearest bound reads as a step only while
+// the value sits near the scale (a 15px padding snapping to 16px). Far outside
+// it the same snap is a teleport — a 800px max-width against a size scale that
+// tops out at 8px would collapse on one arrow press — so reach is capped at the
+// scale's own outermost gap and anything beyond falls back to a raw step.
+const isWithinSnapReach = (scale: readonly number[], current: number, boundIndex: number) => {
+  const bound = scale[boundIndex];
+  const neighbour = scale[boundIndex === 0 ? 1 : boundIndex - 1];
+  const reach = neighbour === undefined ? Math.abs(bound) : Math.abs(bound - neighbour);
+  return Math.abs(current - bound) <= reach;
+};
+
 // Discrete scales (Radix/Chakra spacing, Tailwind `--text-*`, …) snap to the
 // neighbouring token; an off-scale value returns null so the caller can fall
 // back to a raw step instead of teleporting across the scale.
-const nextValueInScale = (
+export const nextValueInScale = (
   scale: readonly number[],
   current: number,
   direction: 1 | -1,
 ): number | null => {
   if (direction === 1) {
-    // First token above current. Also pulls a below-scale value up onto the
-    // floor; yields null past the top token so the caller falls back to raw.
-    for (const value of scale) {
-      if (value > current) return value;
+    // First token above current. Also pulls a near-enough below-scale value up
+    // onto the floor; yields null past the top token so the caller falls back
+    // to raw.
+    for (let scaleIndex = 0; scaleIndex < scale.length; scaleIndex++) {
+      if (scale[scaleIndex] <= current) continue;
+      const isFloorToken = scaleIndex === 0;
+      if (isFloorToken && !isWithinSnapReach(scale, current, scaleIndex)) return null;
+      return scale[scaleIndex];
     }
     return null;
   }
-  // First token below current. Also pulls an above-scale value down onto the
-  // top token; yields null past the floor so the caller falls back to raw.
+  // First token below current. Also pulls a near-enough above-scale value down
+  // onto the top token; yields null past the floor so the caller falls back to
+  // raw.
   for (let scaleIndex = scale.length - 1; scaleIndex >= 0; scaleIndex--) {
-    if (scale[scaleIndex] < current) return scale[scaleIndex];
+    if (scale[scaleIndex] >= current) continue;
+    const isTopToken = scaleIndex === scale.length - 1;
+    if (isTopToken && !isWithinSnapReach(scale, current, scaleIndex)) return null;
+    return scale[scaleIndex];
   }
   return null;
 };
