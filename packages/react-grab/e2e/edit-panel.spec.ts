@@ -975,6 +975,36 @@ test.describe("Style Panel", () => {
         .toBe("804px");
     });
 
+    test("on-scale size stays on the grid instead of walking a sparse token scale", async ({
+      reactGrab,
+    }) => {
+      await reactGrab.page.evaluate((buttonSelector) => {
+        const button = document.querySelector(buttonSelector);
+        if (button instanceof HTMLElement) button.style.maxWidth = "32px";
+      }, BUTTON_SELECTOR);
+      await openEditPanel(reactGrab, BUTTON_SELECTOR);
+      await setSearchInputValue(reactGrab.page, "max width");
+      await expect.poll(() => getActivePropertyKey(reactGrab.page)).toBe("max-width");
+
+      // The size family contains 16px, 32px, and 1280px tokens, but those can
+      // represent unrelated icon and container scales. Both directions stay
+      // on the bounded 4px grid even when the current value matches a token.
+      await reactGrab.page.keyboard.press("ArrowLeft");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, BUTTON_SELECTOR, "max-width"))
+        .toBe("28px");
+
+      await reactGrab.page.keyboard.press("ArrowRight");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, BUTTON_SELECTOR, "max-width"))
+        .toBe("32px");
+
+      await reactGrab.page.keyboard.press("ArrowRight");
+      await expect
+        .poll(() => getInlineStyleProperty(reactGrab.page, BUTTON_SELECTOR, "max-width"))
+        .toBe("36px");
+    });
+
     test("ArrowUp / ArrowDown navigate the list, not the value", async ({ reactGrab }) => {
       await openEditPanel(reactGrab, BUTTON_SELECTOR);
       const initialActivePropertyKey = await getActivePropertyKey(reactGrab.page);

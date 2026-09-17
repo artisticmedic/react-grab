@@ -232,10 +232,14 @@ export const collectDesignTokens = (element: Element): DesignTokenResolver => {
     if (family === null) return null;
     const current = Math.round(px);
 
-    const scale = sortedLengthPxByFamily.get(family);
-    if (scale) {
-      const steppedInScale = nextValueInScale(scale, current, direction);
-      if (steppedInScale !== null) return steppedInScale;
+    // Size tokens are not one trustworthy scale: icon sizes and container
+    // widths can share the family, making their numeric adjacency unbounded.
+    if (family !== "size") {
+      const scale = sortedLengthPxByFamily.get(family);
+      if (scale) {
+        const steppedInScale = nextValueInScale(scale, current, direction);
+        if (steppedInScale !== null) return steppedInScale;
+      }
     }
     // Spacing/sizing off the scale rides Tailwind's `--spacing` grid, which
     // steps to the adjacent grid cell and so stays a nudge at any magnitude.

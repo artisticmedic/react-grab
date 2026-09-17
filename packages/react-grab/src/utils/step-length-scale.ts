@@ -1,8 +1,7 @@
 // Stepping onto the scale from between two tokens would move the value by the
-// width of whatever gap it sits in, and a family can be arbitrarily sparse —
-// icon sizes and a container width both resolve to "size" — so that gap has no
-// upper bound. The walk therefore starts only from a value already on the
-// scale; off it the caller nudges, which is bounded by construction.
+// width of whatever gap it sits in, and a family can be arbitrarily sparse.
+// The walk therefore starts only from a value already on the scale; off it the
+// caller nudges, which is bounded by construction.
 export const nextValueInScale = (
   scale: readonly number[],
   current: number,
